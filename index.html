@@ -130,18 +130,6 @@
   .prog{height:8px; background:var(--track); border-radius:99px; overflow:hidden}
   .prog>i{display:block; height:100%; border-radius:99px; transition:width .45s ease}
 
-  /* water */
-  .water{margin-top:16px; background:var(--green-soft); border-radius:16px; padding:13px 15px; display:flex; align-items:center; gap:12px}
-  .water .wtitle{font-size:13px; font-weight:700; color:var(--green-ink)}
-  .water .wsub{font-size:12px; color:var(--muted)}
-  .cups{display:flex; gap:5px; flex:1; flex-wrap:wrap}
-  .cup{width:22px; height:26px; cursor:pointer; color:var(--green); opacity:.35; transition:.15s}
-  .cup.full{opacity:1}
-  .cup:hover{transform:translateY(-1px)}
-  .wadd{width:38px; height:38px; border-radius:12px; background:var(--green); color:#fff; border:0; cursor:pointer; display:grid; place-items:center; flex:0 0 auto; box-shadow:0 6px 14px -6px var(--green)}
-  .wadd:hover{background:var(--green-deep)}
-  .wadd svg{width:20px;height:20px}
-
   /* section head */
   .shead{display:flex; align-items:center; justify-content:space-between; padding:2px 4px}
   .shead h2{font-size:17px; font-weight:800; margin:0}
@@ -412,10 +400,9 @@
 
   /* ---------- state ---------- */
   var days=store.get("zoom_days")||{};
-  var prefs=store.get("zoom_prefs")||{targets:{morning:400,lunch:550,dinner:500,late:150,snack:200},macros:{p:90,c:250,f:60},waterGoal:8};
+  var prefs=store.get("zoom_prefs")||{targets:{morning:400,lunch:550,dinner:500,late:150,snack:200},macros:{p:90,c:250,f:60}};
   if(!prefs.targets)prefs.targets={morning:400,lunch:550,dinner:500,late:150,snack:200};
   if(!prefs.macros)prefs.macros={p:90,c:250,f:60};
-  if(prefs.waterGoal==null)prefs.waterGoal=8;
   var filter=store.get("zoom_filter")||{cat:"all",respectTarget:true};
   var theme=store.get("zoom_theme")||"auto";
   applyTheme(theme);
@@ -451,12 +438,11 @@
     var g=dailyGoal(),eaten=totalEaten(d);
     if(eaten===0)return 0;
     var cal=g>0?Math.max(0,1-Math.abs(eaten-g)/g):0;
-    var wat=prefs.waterGoal>0?Math.min(d.water/prefs.waterGoal,1):0;
     var m=macrosOf(d);
     var mp=prefs.macros.p>0?Math.min(m.p/prefs.macros.p,1):0;
     var mc=prefs.macros.c>0?Math.min(m.c/prefs.macros.c,1):0;
     var mf=prefs.macros.f>0?Math.min(m.f/prefs.macros.f,1):0;
-    return Math.max(0,Math.min(100,Math.round(cal*40+wat*30+(mp+mc+mf)/3*30)));
+    return Math.max(0,Math.min(100,Math.round(cal*50+(mp+mc+mf)/3*50)));
   }
 
   /* ---------- render ---------- */
@@ -512,16 +498,13 @@
       (isToday?'':'<button class="dtoday" data-act="today">วันนี้</button>')+
       '<button class="dnav" data-act="dnav" data-n="1">›</button></div>';
     // hero
-    var water='<div class="water"><div style="flex:0 0 auto"><div class="wtitle">น้ำวันนี้</div><div class="wsub tnum">'+d.water+' / '+prefs.waterGoal+' แก้ว</div></div>'+
-      '<div class="cups">'+cupsHTML(d.water)+'</div>'+
-      '<button class="wadd" data-act="water-plus" aria-label="เพิ่มน้ำ">'+svg("plus","")+'</button></div>';
     var hero='<div class="card hero"><div class="hero-top">'+
       '<div style="flex:0 0 auto">'+ringHTML(eaten,goal)+'<div class="goal-line tnum">เป้าหมาย '+goal.toLocaleString()+' <span>kcal</span></div></div>'+
       '<div class="macros">'+
         macroRow("โปรตีน",m.p,prefs.macros.p,"var(--green)","g")+
         macroRow("คาร์บ",m.c,prefs.macros.c,"var(--blue)","g")+
         macroRow("ไขมัน",m.f,prefs.macros.f,"var(--orange)","g")+
-      '</div></div>'+water+'</div>';
+      '</div></div></div>';
 
     // meal section
     var tabs=MEALS.map(function(mm){
@@ -552,11 +535,6 @@
     return date+hero+mealSec+tiles+mascot+note;
   }
 
-  function cupsHTML(n){
-    var g=prefs.waterGoal,out="";
-    for(var i=0;i<g;i++){out+='<span class="cup'+(i<n?' full':'')+'" data-act="water-cup" data-i="'+i+'">'+svg("cup","")+'</span>';}
-    return out;
-  }
   function tile(cls,icon,label,val,unit){
     return '<div class="tile '+cls+'"><div class="ti">'+svg(icon,"")+'</div><div class="tv tnum">'+val+'</div><div class="tl">'+label+'</div><div class="tu">'+unit+'</div></div>';
   }
@@ -663,13 +641,10 @@
     }).join("");
     var logged=arr.filter(function(x){return x.e>0;});
     var avg=logged.length?Math.round(logged.reduce(function(s,x){return s+x.e;},0)/logged.length):0;
-    var waterDays=arr.map(function(x){return days[x.k]?getDay(x.k).water:0;});
-    var avgW=logged.length?(waterDays.reduce(function(s,v){return s+v;},0)/Math.max(logged.length,1)).toFixed(1):0;
 
     var chart='<div class="shead" style="padding-top:4px"><h2>7 วันล่าสุด</h2></div>'+
       '<div class="card chart"><div class="bars">'+bars+'</div></div>'+
-      '<div class="avgrow"><div class="avg"><div class="av tnum">'+avg.toLocaleString()+'</div><div class="al">เฉลี่ย kcal/วัน</div></div>'+
-      '<div class="avg"><div class="av tnum">'+avgW+'</div><div class="al">น้ำเฉลี่ย/วัน</div></div>'+
+      '<div class="avgrow" style="grid-template-columns:repeat(2,1fr)"><div class="avg"><div class="av tnum">'+avg.toLocaleString()+'</div><div class="al">เฉลี่ย kcal/วัน</div></div>'+
       '<div class="avg"><div class="av tnum">'+logged.length+'</div><div class="al">วันที่บันทึก</div></div></div>';
 
     // history
@@ -700,9 +675,6 @@
     var macros='<div class="card setgrp"><h3>เป้าหมายสารอาหาร</h3>'+
       macroSet("โปรตีน","p",prefs.macros.p)+macroSet("คาร์โบไฮเดรต","c",prefs.macros.c)+macroSet("ไขมัน","f",prefs.macros.f)+'</div>';
 
-    var water='<div class="card setgrp"><h3>เป้าหมายอื่นๆ</h3>'+
-      '<div class="setrow"><div class="srl">น้ำดื่มต่อวัน<small>จำนวนแก้ว (แก้วละ ~250 มล.)</small></div><div class="setinput"><input type="number" min="1" max="20" inputmode="numeric" value="'+prefs.waterGoal+'" data-act="pref-water"><span class="su">แก้ว</span></div></div></div>';
-
     var themeSeg='<div class="card setgrp"><h3>ธีมการแสดงผล</h3><div class="themeseg">'+
       ['auto','light','dark'].map(function(t){var lb={auto:"ตามระบบ",light:"สว่าง",dark:"มืด"}[t];return '<button class="'+(theme===t?'on':'')+'" data-act="theme" data-theme="'+t+'">'+lb+'</button>';}).join("")+'</div></div>';
 
@@ -710,9 +682,9 @@
       '<button class="dngbtn" data-act="reset-today">ล้างบันทึกของวันนี้</button>'+
       '<button class="dngbtn" data-act="reset-all">'+(resetArm?"แน่ใจไหม? แตะอีกครั้งเพื่อลบทั้งหมด":"ล้างข้อมูลทั้งหมด")+'</button></div>';
 
-    var about='<div class="note">คะแนนสุขภาพคำนวณจากความใกล้เคียงเป้าแคลอรี่ (40) + น้ำดื่ม (30) + ความครบของสารอาหาร (30) — เป็นค่าประมาณเพื่อกระตุ้นกำลังใจ ไม่ใช่คำแนะนำทางการแพทย์</div>';
+    var about='<div class="note">คะแนนสุขภาพคำนวณจากความใกล้เคียงเป้าแคลอรี่ (50) + ความครบของสารอาหาร (50) — เป็นค่าประมาณเพื่อกระตุ้นกำลังใจ ไม่ใช่คำแนะนำทางการแพทย์</div>';
 
-    return targets+macros+water+themeSeg+data+about;
+    return targets+macros+themeSeg+data+about;
   }
   function macroSet(label,key,val){
     return '<div class="setrow"><div class="srl">'+label+'</div><div class="setinput"><input type="number" min="0" step="5" inputmode="numeric" value="'+val+'" data-act="pref-macro" data-macro="'+key+'"><span class="su">g</span></div></div>';
@@ -788,8 +760,6 @@
       var known=FOODS[nm];addOpen=false;addItem(curMeal,nm,cl,known?known.t:"");
     }
     else if(act==="del"){var meal=el.getAttribute("data-meal"),id=+el.getAttribute("data-id");var d=getDay(curKey);d.log[meal]=d.log[meal].filter(function(i){return i.id!==id;});saveDays();render();}
-    else if(act==="water-plus"){var d2=getDay(curKey);d2.water++;saveDays();render();}
-    else if(act==="water-cup"){var d3=getDay(curKey),i=+el.getAttribute("data-i");d3.water=(d3.water===i+1)?i:i+1;saveDays();render();}
     else if(act==="goal-preset"){applyGoalPreset(+el.getAttribute("data-total"));}
     else if(act==="theme"){theme=el.getAttribute("data-theme");store.set("zoom_theme",theme);applyTheme(theme);render();}
     else if(act==="reset-today"){days[curKey]={log:{},water:0,exercise:0};saveDays();suggestions={};render();}
@@ -803,7 +773,6 @@
     if(act==="meal-target"){prefs.targets[el.getAttribute("data-meal")]=v;savePrefs();render();}
     else if(act==="pref-target"){prefs.targets[el.getAttribute("data-meal")]=v;savePrefs();render();}
     else if(act==="pref-macro"){prefs.macros[el.getAttribute("data-macro")]=v;savePrefs();render();}
-    else if(act==="pref-water"){prefs.waterGoal=Math.max(1,v);savePrefs();render();}
     else if(act==="exercise"){getDay(curKey).exercise=v;saveDays();render();}
   });
   document.addEventListener("input",function(e){
