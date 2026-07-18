@@ -221,6 +221,7 @@
   .addform .an{flex:1 1 100%}
   .addform .ac{width:82px; -moz-appearance:textfield}
   .addform .ac::-webkit-inner-spin-button,.addform .ac::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+  .addhint{flex:1 1 100%; font-size:11.5px; color:var(--muted); line-height:1.35}
 
   /* summary tiles */
   .tiles{display:grid; grid-template-columns:repeat(4,1fr); gap:9px; padding:14px}
@@ -370,6 +371,14 @@
     snack:[["เฟรนช์ฟรายส์",320,""],["ป๊อปคอร์น",150,"veg"],["มันฝรั่งทอดกรอบ",160,""],["ชานมไข่มุก",350,"veg"],["เค้ก 1 ชิ้น",300,"veg"],["ไอศกรีม",200,"veg"],["ถั่วอบ",180,"clean veg protein"],["ผลไม้สด",80,"clean veg"],["โดนัท",250,"veg"],["ขนมปังสังขยา",220,"veg"],["โยเกิร์ตกรีก + กราโนล่า",210,"clean protein veg"],["เอ็ดามาเมะ",130,"clean veg protein"],["ข้าวโพดคั่ว",120,"clean veg"],["นมกล่อง",120,"veg"],["ดาร์กช็อกโกแลต 2 ชิ้น",110,"veg"]]
   };
   var CAT_LABEL={all:"ทั้งหมด",clean:"คลีน",protein:"โปรตีนสูง",veg:"มังสวิรัติ"};
+  // flat lookup of every dish -> {calories, tags} for auto-calc when logging what you ate
+  var FOODS={},FOOD_OPTIONS="";
+  (function(){
+    var list=[];
+    Object.keys(DB).forEach(function(mk){DB[mk].forEach(function(f){if(!(f[0] in FOODS)){FOODS[f[0]]={c:f[1],t:f[2]||""};list.push(f);}});});
+    list.sort(function(a,b){return a[0].localeCompare(b[0],"th");});
+    FOOD_OPTIONS=list.map(function(f){return '<option value="'+f[0].replace(/"/g,"&quot;")+'">'+f[1]+' kcal</option>';}).join("");
+  })();
 
   /* ---------- date helpers ---------- */
   var TH_DAYS=["อาทิตย์","จันทร์","อังคาร","พุธ","พฤหัสบดี","ศุกร์","เสาร์"];
@@ -572,7 +581,14 @@
     // add
     var add;
     if(addOpen){
-      add='<div class="addform"><input class="an" type="text" placeholder="ชื่ออาหาร / เครื่องดื่ม" data-role="an"><input class="ac" type="number" min="0" inputmode="numeric" placeholder="kcal" data-role="ac"><button class="btn green" data-act="add-custom">'+svg("plus","")+'เพิ่ม</button><button class="btn" data-act="add-cancel">ยกเลิก</button></div>';
+      add='<div class="addform">'+
+        '<input class="an" type="text" list="foodlist" autocomplete="off" placeholder="พิมพ์หรือเลือกชื่ออาหารที่ทาน" data-role="an">'+
+        '<input class="ac" type="number" min="0" inputmode="numeric" placeholder="kcal" data-role="ac">'+
+        '<button class="btn green" data-act="add-custom">'+svg("plus","")+'บันทึก</button>'+
+        '<button class="btn" data-act="add-cancel">ยกเลิก</button>'+
+        '<div class="addhint">เลือกจากรายการ แล้วแคลอรี่จะคำนวณให้อัตโนมัติ — หรือพิมพ์ชื่อ + แคลเองก็ได้</div>'+
+        '<datalist id="foodlist">'+FOOD_OPTIONS+'</datalist>'+
+      '</div>';
     }else{
       add='<button class="addbtn" data-act="add-open">'+svg("plus","")+'เพิ่มอาหาร / เครื่องดื่ม</button>';
     }
@@ -742,7 +758,7 @@
       var box=el.closest(".addform");var nm=(box.querySelector('[data-role="an"]').value||"").trim();var cl=parseInt(box.querySelector('[data-role="ac"]').value,10);
       if(!nm){box.querySelector('[data-role="an"]').focus();return;}
       if(isNaN(cl)||cl<0){box.querySelector('[data-role="ac"]').focus();return;}
-      addOpen=false;addItem(curMeal,nm,cl,"");
+      var known=FOODS[nm];addOpen=false;addItem(curMeal,nm,cl,known?known.t:"");
     }
     else if(act==="del"){var meal=el.getAttribute("data-meal"),id=+el.getAttribute("data-id");var d=getDay(curKey);d.log[meal]=d.log[meal].filter(function(i){return i.id!==id;});saveDays();render();}
     else if(act==="water-plus"){var d2=getDay(curKey);d2.water++;saveDays();render();}
@@ -761,6 +777,12 @@
     else if(act==="pref-macro"){prefs.macros[el.getAttribute("data-macro")]=v;savePrefs();render();}
     else if(act==="pref-water"){prefs.waterGoal=Math.max(1,v);savePrefs();render();}
     else if(act==="exercise"){getDay(curKey).exercise=v;saveDays();render();}
+  });
+  document.addEventListener("input",function(e){
+    var el=e.target.closest('[data-role="an"]');if(!el)return;
+    var box=el.closest(".addform");if(!box)return;
+    var f=FOODS[(el.value||"").trim()];
+    if(f)box.querySelector('[data-role="ac"]').value=f.c;
   });
   document.addEventListener("keydown",function(e){
     if(e.key!=="Enter")return;var el=e.target.closest('[data-role="an"],[data-role="ac"]');if(!el)return;
