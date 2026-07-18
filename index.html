@@ -282,6 +282,15 @@
   .setinput input::-webkit-inner-spin-button,.setinput input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
   .setinput input:focus{outline:none}
   .setinput .su{font-size:11px; color:var(--muted)}
+  .preset-sub{font-size:12px; color:var(--muted); margin:-4px 0 11px; line-height:1.35}
+  .presets{display:flex; gap:7px; flex-wrap:wrap; margin-bottom:14px}
+  .preset{flex:1 1 auto; min-width:84px; display:flex; flex-direction:column; align-items:center; gap:2px; border:1.5px solid var(--line-2); background:var(--surface-2); color:var(--ink); border-radius:13px; padding:9px 8px; cursor:pointer; transition:.15s}
+  .preset:hover{border-color:var(--green)}
+  .preset .pn{font-size:12px; color:var(--muted); font-weight:600}
+  .preset .pk{font-size:16px; font-weight:800}
+  .preset .pk::after{content:" kcal"; font-size:9.5px; color:var(--faint); font-weight:600}
+  .preset.on{border-color:var(--green); background:var(--green-soft)}
+  .preset.on .pn,.preset.on .pk{color:var(--green-ink)}
   .goaltotal{display:flex; justify-content:space-between; padding:12px 0 2px; margin-top:6px; border-top:2px solid var(--line-2); font-weight:800}
   .goaltotal span{color:var(--green-ink)}
   .themeseg{display:flex; gap:6px}
@@ -371,6 +380,14 @@
     snack:[["เฟรนช์ฟรายส์",320,""],["ป๊อปคอร์น",150,"veg"],["มันฝรั่งทอดกรอบ",160,""],["ชานมไข่มุก",350,"veg"],["เค้ก 1 ชิ้น",300,"veg"],["ไอศกรีม",200,"veg"],["ถั่วอบ",180,"clean veg protein"],["ผลไม้สด",80,"clean veg"],["โดนัท",250,"veg"],["ขนมปังสังขยา",220,"veg"],["โยเกิร์ตกรีก + กราโนล่า",210,"clean protein veg"],["เอ็ดามาเมะ",130,"clean veg protein"],["ข้าวโพดคั่ว",120,"clean veg"],["นมกล่อง",120,"veg"],["ดาร์กช็อกโกแลต 2 ชิ้น",110,"veg"]]
   };
   var CAT_LABEL={all:"ทั้งหมด",clean:"คลีน",protein:"โปรตีนสูง",veg:"มังสวิรัติ"};
+  // preset daily calorie goals (kcal) — chosen goal is distributed across meals
+  var PRESETS=[
+    {t:1200,label:"ลดเข้มข้น"},
+    {t:1500,label:"ลดน้ำหนัก"},
+    {t:1800,label:"คุมน้ำหนัก"},
+    {t:2000,label:"คงระดับ"},
+    {t:2200,label:"เพิ่มพลังงาน"}
+  ];
   // flat lookup of every dish -> {calories, tags} for auto-calc when logging what you ate
   var FOODS={},FOOD_OPTIONS="";
   (function(){
@@ -674,7 +691,11 @@
     var tRows=MEALS.map(function(m){
       return '<div class="setrow"><div class="srl">'+m.full+'</div><div class="setinput"><input type="number" min="0" step="10" inputmode="numeric" value="'+(+prefs.targets[m.key]||0)+'" data-act="pref-target" data-meal="'+m.key+'"><span class="su">kcal</span></div></div>';
     }).join("");
-    var targets='<div class="card setgrp"><h3>เป้าหมายแคลอรี่แต่ละมื้อ</h3>'+tRows+'<div class="goaltotal">รวมทั้งวัน <span class="tnum">'+goal.toLocaleString()+' kcal</span></div></div>';
+    var presetChips=PRESETS.map(function(p){var on=goal===p.t;return '<button class="preset'+(on?' on':'')+'" data-act="goal-preset" data-total="'+p.t+'"><span class="pn">'+p.label+'</span><span class="pk tnum">'+p.t.toLocaleString()+'</span></button>';}).join("");
+    var targets='<div class="card setgrp"><h3>เป้าหมายแคลอรี่ต่อวัน</h3>'+
+      '<div class="preset-sub">เลือกแบบด่วน แล้วระบบจะกระจายให้แต่ละมื้อให้อัตโนมัติ (ปรับรายมื้อเองด้านล่างได้)</div>'+
+      '<div class="presets">'+presetChips+'</div>'+tRows+
+      '<div class="goaltotal">รวมทั้งวัน <span class="tnum">'+goal.toLocaleString()+' kcal</span></div></div>';
 
     var macros='<div class="card setgrp"><h3>เป้าหมายสารอาหาร</h3>'+
       macroSet("โปรตีน","p",prefs.macros.p)+macroSet("คาร์โบไฮเดรต","c",prefs.macros.c)+macroSet("ไขมัน","f",prefs.macros.f)+'</div>';
@@ -724,6 +745,12 @@
     suggestions[curMeal]={n:pick[0],c:pick[1],tags:pick[2],note:note};
     render();
   }
+  function applyGoalPreset(total){
+    var order=["morning","lunch","dinner","late"],R={morning:.22,lunch:.30,dinner:.28,late:.08},acc=0;
+    order.forEach(function(k){var v=Math.round(total*R[k]/10)*10;prefs.targets[k]=v;acc+=v;});
+    prefs.targets.snack=Math.max(0,total-acc);
+    savePrefs();render();
+  }
   function addItem(meal,name,cal,tags){
     var d=getDay(curKey),mac=estMacros(cal,tags);
     d.log[meal].push({id:++uid,n:name,c:+cal||0,p:mac.p,cb:mac.cb,f:mac.f,t:nowHM()});
@@ -763,6 +790,7 @@
     else if(act==="del"){var meal=el.getAttribute("data-meal"),id=+el.getAttribute("data-id");var d=getDay(curKey);d.log[meal]=d.log[meal].filter(function(i){return i.id!==id;});saveDays();render();}
     else if(act==="water-plus"){var d2=getDay(curKey);d2.water++;saveDays();render();}
     else if(act==="water-cup"){var d3=getDay(curKey),i=+el.getAttribute("data-i");d3.water=(d3.water===i+1)?i:i+1;saveDays();render();}
+    else if(act==="goal-preset"){applyGoalPreset(+el.getAttribute("data-total"));}
     else if(act==="theme"){theme=el.getAttribute("data-theme");store.set("zoom_theme",theme);applyTheme(theme);render();}
     else if(act==="reset-today"){days[curKey]={log:{},water:0,exercise:0};saveDays();suggestions={};render();}
     else if(act==="reset-all"){if(!resetArm){resetArm=true;render();}else{days={};saveDays();suggestions={};resetArm=false;curKey=todayKey();render();}}
