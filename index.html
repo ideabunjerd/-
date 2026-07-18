@@ -243,7 +243,8 @@
   .mascot .mtxt{flex:1}
   .mascot .mtxt .mt1{font-size:16px; font-weight:800; color:var(--green-ink)}
   .mascot .mtxt .mt2{font-size:13px; color:var(--muted); margin-top:2px; line-height:1.35}
-  .mascot .pic{width:74px;height:74px;flex:0 0 auto}
+  .mascot .pic{width:72px;height:72px;flex:0 0 auto;border-radius:18px;background:#FBF8F1;display:grid;place-items:center;box-shadow:var(--shadow-sm)}
+  .mascot .pic svg{width:56px;height:auto}
 
   /* stats */
   .chart{padding:16px}
@@ -518,7 +519,7 @@
 
     // mascot
     var msg=mascotMsg(eaten,goal);
-    var mascot='<div class="card mascot">'+mascotSVG()+'<div class="mtxt"><div class="mt1">'+msg.t+'</div><div class="mt2">'+msg.s+'</div></div></div>';
+    var mascot='<div class="card mascot"><span class="pic">'+logoMark()+'</span><div class="mtxt"><div class="mt1">'+msg.t+'</div><div class="mt2">'+msg.s+'</div></div></div>';
 
     var note='<div class="note">'+(store.persistent?"ข้อมูลบันทึกไว้ในเบราว์เซอร์นี้โดยอัตโนมัติ":"โหมดชั่วคราว: ข้อมูลจะหายเมื่อปิดหน้า")+'</div>';
 
